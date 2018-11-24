@@ -9,12 +9,12 @@ import os
 import cDCGAN
 
 # Parameters
-image_size = 112
-label_dim = 1000
-G_input_dim = 1000
+image_size = 64
+label_dim = 7
+G_input_dim = 100
 G_output_dim = 3
 D_input_dim = 3
-D_output_dim = 1
+D_output_dim = label_dim
 num_filters = [1024, 512, 256, 128]
 
 learning_rate = 0.0002
@@ -41,7 +41,10 @@ dataloaders = torch.utils.data.DataLoader(dataset=image_datasets,
 
 # Label list (one-hot)
 tmp = torch.LongTensor(range(0, label_dim)).view(-1, 1)
-label = torch.zeros(label_dim, label_dim).scatter_(1, tmp, 1).view(-1, G_input_dim, 1, 1)
+label = torch.zeros(label_dim, label_dim).scatter_(1, tmp, 1).view(-1, label_dim, 1, 1)
+fill = torch.zeros([label_dim, label_dim, image_size, image_size])
+for i in range(label_dim):
+    fill[i, i, :, :] = 1
 
 # Models
 G = cDCGAN.Generator(G_input_dim, label_dim, num_filters, G_output_dim)
@@ -56,58 +59,63 @@ criterion = torch.nn.BCELoss()
 G_optimizer = torch.optim.Adam(G.parameters(), lr=learning_rate, betas=betas)
 D_optimizer = torch.optim.Adam(D.parameters(), lr=learning_rate, betas=betas)
 
-
-for batch_index, (images, labels) in enumerate(dataloaders):
-    
-    batch_size = images.size()[0]
-    real_lab = label[labels]
-
-    real_img = images
-    # real_img = images.cuda()
-    # real_lab = labels.cuda()
-
-    # Train descriminator with real data
-    D_real_decision = D(real_img, real_lab)
-    D_real_loss = criterion(D_real_decision, real_lab)
-
-    # Train discriminator with fake data
-    G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
-    # G_input = G_input.cuda()
-    fake_label = label[(torch.rand(batch_size) * label_dim).type(torch.LongTensor)]
-    fake_img = G(G_input, fake_label)
-    # fake_label = fake_label.cuda()
-    # fake_img = fake_img.cuda()
-
-    D_fake_decision = D(fake_img, fake_label)
-    D_fake_loss = criterion(D_fake_decision, fake_label)
-
-    # Back propagation
-    D_loss = D_real_loss + D_fake_loss
-    D,zero_grad()
-    D_loss.backward()
-    D_optimizer.step()
-
-    # Train generator
-    G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim)
-    # G_input = G_input.cuda()
-    fake_label = label[(torch.rand(batch_size) * label_dim).type(torch.LongTensor)]
-    fake_img = G(G_input, fake_label)
-    # fake_label = fake_label.cuda()
-    # fake_img = fake_img.cuda()
+for epoch in range(num_epochs):
+    if epoch == 5 or epoch == 10:
+        G_optimizer.param_groups[0]['lr'] /= 10
+        D_optimizer.param_groups[0]['lr'] /= 10
+    for batch_index, (images, labels) in enumerate(dataloaders):
         
-    D_fake_decision = D(fake_img, fake_label)
-    G_loss = criterion(D_fake_decision, fake_label)
+        batch_size = images.size()[0]
+        real_lab = label[labels]
+        print(real_lab.size())
+        fill1 = fill[labels]
+        real_img = images
+        # real_img = images.cuda()
+        # real_lab = labels.cuda()
 
-    # Back propagation
-    G.zero_grad()
-    G_loss.backward()
-    G_optimizer.step()
+        # Train descriminator with real data
+        D_real_decision = D(real_img, fill1).squeeze()
+        D_real_loss = criterion(D_real_decision, real_lab)
 
-    # loss values
-    # D_losses.append(D_loss.data[0])
-    # G_losses.append(G_loss.data[0])
+        # Train discriminator with fake data
+        G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
+        # G_input = G_input.cuda()
+        random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
+        fill2 = fill[random_choice]
+        fake_label = label[random_choice]
+        fake_img = G(G_input, fake_label)
+        # fake_label = fake_label.cuda()
+        # fake_img = fake_img.cuda()
 
-    print('Epoch [%d/%d], Step [%d/%d], D_loss: %.4f, G_loss: %.4f'
-            % (epoch+1, num_epochs, i+1, len(data_loader), D_loss.data[0], G_loss.data[0]))
-    
-    break
+        D_fake_decision = D(fake_img, fill2)
+        D_fake_loss = criterion(D_fake_decision, fake_label)
+
+        # Back propagation
+        D_loss = D_real_loss + D_fake_loss
+        D.zero_grad()
+        D_loss.backward()
+        D_optimizer.step()
+
+        # Train generator
+        G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
+        # G_input = G_input.cuda()
+        random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
+        fill3 = fill[random_choice]
+        fake_label = label[random_choice]
+        fake_img = G(G_input, fake_label)
+        # fake_label = fake_label.cuda()
+        # fake_img = fake_img.cuda()
+            
+        D_fake_decision = D(fake_img, fill3)
+        G_loss = criterion(D_fake_decision, fake_label)
+
+        # Back propagation
+        G.zero_grad()
+        G_loss.backward()
+        G_optimizer.step()
+
+        # loss values
+        # D_losses.append(D_loss.data[0])
+        # G_losses.append(G_loss.data[0])
+        print('Epoch [%d/%d], Step [%d/%d], D_loss: %.4f, G_loss: %.4f'
+                % (epoch+1, num_epochs, i+1, len(dataloaders), D_loss.data[0], G_loss.data[0]))
