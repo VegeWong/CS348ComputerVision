@@ -75,7 +75,10 @@ class Generator(torch.nn.Module):
         x = torch.cat([h1, h2], 1)
         h = self.hidden_layer(x)
         out = self.output_layer(h)
+        #res = out.type(torch.cuda.FloatTensor)
+        #return res
         return out
+
 
 # Discriminator model
 class Discriminator(torch.nn.Module):

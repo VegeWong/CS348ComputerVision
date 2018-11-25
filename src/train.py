@@ -9,8 +9,8 @@ import os
 import cDCGAN
 
 # Parameters
-image_size = 64
-label_dim = 7
+image_size = 112
+label_dim = 2
 G_input_dim = 100
 G_output_dim = 3
 D_input_dim = 3
@@ -22,7 +22,7 @@ betas = (0.5, 0.999)
 batch_size = 128
 num_epochs = 20
 
-data_dir = '/run/media/vegw/新加卷/ImageNet/train'
+data_dir = '/home/aimalex/CS348ComputerVision/data'
 
 
 data_transforms = transforms.Compose([transforms.RandomResizedCrop(size=image_size),
@@ -36,21 +36,20 @@ image_datasets = datasets.ImageFolder(data_dir,
 
 dataloaders = torch.utils.data.DataLoader(dataset=image_datasets,
                                             batch_size=batch_size,
-                                            shuffle=True,
-                                            num_workers=4)
+                                            shuffle=True)
 
 # Label list (one-hot)
 tmp = torch.LongTensor(range(0, label_dim)).view(-1, 1)
 label = torch.zeros(label_dim, label_dim).scatter_(1, tmp, 1).view(-1, label_dim, 1, 1)
-fill = torch.zeros([label_dim, label_dim, image_size, image_size])
+fill = torch.zeros([label_dim, label_dim, image_size, image_size]).cuda()
 for i in range(label_dim):
     fill[i, i, :, :] = 1
 
 # Models
 G = cDCGAN.Generator(G_input_dim, label_dim, num_filters, G_output_dim)
 D = cDCGAN.Discriminator(D_input_dim, label_dim, num_filters[::-1], D_output_dim)
-# G.cuda()
-# D.cuda()
+G.cuda()
+D.cuda()
 
 # Loss function
 criterion = torch.nn.BCELoss()
@@ -70,8 +69,8 @@ for epoch in range(num_epochs):
         print(real_lab.size())
         fill1 = fill[labels]
         real_img = images
-        # real_img = images.cuda()
-        # real_lab = labels.cuda()
+        real_img = images.cuda()
+        real_lab = labels.cuda()
 
         # Train descriminator with real data
         D_real_decision = D(real_img, fill1).squeeze()
@@ -84,8 +83,8 @@ for epoch in range(num_epochs):
         fill2 = fill[random_choice]
         fake_label = label[random_choice]
         fake_img = G(G_input, fake_label)
-        # fake_label = fake_label.cuda()
-        # fake_img = fake_img.cuda()
+        fake_label = fake_label.cuda()
+        fake_img = fake_img.cuda()
 
         D_fake_decision = D(fake_img, fill2)
         D_fake_loss = criterion(D_fake_decision, fake_label)
@@ -98,13 +97,13 @@ for epoch in range(num_epochs):
 
         # Train generator
         G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
-        # G_input = G_input.cuda()
+        G_input = G_input.cuda()
         random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
         fill3 = fill[random_choice]
         fake_label = label[random_choice]
         fake_img = G(G_input, fake_label)
-        # fake_label = fake_label.cuda()
-        # fake_img = fake_img.cuda()
+        fake_label = fake_label.cuda()
+        fake_img = fake_img.cuda()
             
         D_fake_decision = D(fake_img, fill3)
         G_loss = criterion(D_fake_decision, fake_label)
