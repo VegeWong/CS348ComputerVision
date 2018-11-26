@@ -12,9 +12,9 @@ import cDCGAN
 image_size = 112
 label_dim = 10
 G_input_dim = 100
-G_output_dim = 1
+G_output_dim = 3
 D_input_dim = 3
-D_output_dim = label_dim
+D_output_dim = 1
 num_filters = [1024, 512, 256, 128]
 
 learning_rate = 0.0002
@@ -100,7 +100,7 @@ for epoch in range(num_epochs):
         fake_img = fake_img.cuda()
             
         D_fake_decision = D(fake_img, fill1)
-        G_loss = criterion(D_fake_decision, fake_label)
+        G_loss = criterion(D_fake_decision, fake_decision)
 
         # Back propagation
         G.zero_grad()
