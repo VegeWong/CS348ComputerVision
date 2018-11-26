@@ -12,7 +12,7 @@ import cDCGAN
 image_size = 112
 label_dim = 10
 G_input_dim = 100
-G_output_dim = 3
+G_output_dim = 1
 D_input_dim = 3
 D_output_dim = label_dim
 num_filters = [1024, 512, 256, 128]
@@ -41,7 +41,7 @@ dataloaders = torch.utils.data.DataLoader(dataset=image_datasets,
 # Label list (one-hot)
 tmp = torch.LongTensor(range(0, label_dim)).view(-1, 1)
 label = torch.zeros(label_dim, label_dim).scatter_(1, tmp, 1).view(-1, label_dim, 1, 1)
-fill = torch.zeros([label_dim, label_dim, image_size, image_size]).cuda()
+fill = torch.zeros([label_dim, label_dim, image_size, image_size])
 for i in range(label_dim):
     fill[i, i, :, :] = 1
 
@@ -66,33 +66,22 @@ for epoch in range(num_epochs):
         
         batch_size = images.size()[0]
         real_lab = label[labels]
-        # print(real_lab.size())
-        fill1 = fill[labels]
-        real_img = images
+        fill1 = fill[labels].cuda()
         real_img = images.cuda()
-        real_lab = real_lab.cuda()
-        # print('real_lab:' + str(real_lab.size()))
-        # Train descriminator with real data
+        real_decision = torch.ones(batch_size).view(-1, 1, 1, 1).cuda()
         D_real_decision = D(real_img, fill1).squeeze()
-        # decision = D_real_decision.detach().cpu().numpy()
-        # with open('./decision.pkl', 'wb') as fp:
-        #     import pickle
-        #     pickle.dump(decision, fp)
-        # print('real_decision:' + str(D_real_decision.size()))
-        D_real_loss = criterion(D_real_decision, real_lab)
+        D_real_loss = criterion(D_real_decision, real_decision)
 
         # Train discriminator with fake data
         G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
         G_input = G_input.cuda()
         random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
-        fill2 = fill[random_choice]
+        fill1 = fill[random_choice].cuda()
         fake_label = label[random_choice].cuda()
-        fake_img = G(G_input, fake_label)
-        fake_label = fake_label.cuda()
-        fake_img = fake_img.cuda()
-
-        D_fake_decision = D(fake_img, fill2)
-        D_fake_loss = criterion(D_fake_decision, fake_label)
+        fake_img = G(G_input, fake_label).cuda()
+        fake_decision = torch.zeros(batch_size).view(-1, 1, 1, 1).cuda()
+        D_fake_decision = D(fake_img, fill1)
+        D_fake_loss = criterion(D_fake_decision, fake_decision)
 
         # Back propagation
         D_loss = D_real_loss + D_fake_loss
@@ -104,13 +93,13 @@ for epoch in range(num_epochs):
         G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
         G_input = G_input.cuda()
         random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
-        fill3 = fill[random_choice]
+        fill1 = fill[random_choice].cuda()
         fake_label = label[random_choice].cuda()
         fake_img = G(G_input, fake_label)
         fake_label = fake_label.cuda()
         fake_img = fake_img.cuda()
             
-        D_fake_decision = D(fake_img, fill3)
+        D_fake_decision = D(fake_img, fill1)
         G_loss = criterion(D_fake_decision, fake_label)
 
         # Back propagation
