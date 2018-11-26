@@ -10,7 +10,7 @@ import cDCGAN
 
 # Parameters
 image_size = 112
-label_dim = 2
+label_dim = 10
 G_input_dim = 100
 G_output_dim = 3
 D_input_dim = 3
@@ -19,10 +19,10 @@ num_filters = [1024, 512, 256, 128]
 
 learning_rate = 0.0002
 betas = (0.5, 0.999)
-batch_size = 128
+batch_size = 32
 num_epochs = 20
 
-data_dir = '/home/aimalex/CS348ComputerVision/data'
+data_dir = '../../../ILSVRC2012_img_train_par'
 
 
 data_transforms = transforms.Compose([transforms.RandomResizedCrop(size=image_size),
@@ -66,22 +66,27 @@ for epoch in range(num_epochs):
         
         batch_size = images.size()[0]
         real_lab = label[labels]
-        print(real_lab.size())
+        # print(real_lab.size())
         fill1 = fill[labels]
         real_img = images
         real_img = images.cuda()
-        real_lab = labels.cuda()
-
+        real_lab = real_lab.cuda()
+        # print('real_lab:' + str(real_lab.size()))
         # Train descriminator with real data
         D_real_decision = D(real_img, fill1).squeeze()
+        # decision = D_real_decision.detach().cpu().numpy()
+        # with open('./decision.pkl', 'wb') as fp:
+        #     import pickle
+        #     pickle.dump(decision, fp)
+        # print('real_decision:' + str(D_real_decision.size()))
         D_real_loss = criterion(D_real_decision, real_lab)
 
         # Train discriminator with fake data
         G_input = torch.randn(batch_size, G_input_dim).view(-1, G_input_dim, 1, 1)
-        # G_input = G_input.cuda()
+        G_input = G_input.cuda()
         random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
         fill2 = fill[random_choice]
-        fake_label = label[random_choice]
+        fake_label = label[random_choice].cuda()
         fake_img = G(G_input, fake_label)
         fake_label = fake_label.cuda()
         fake_img = fake_img.cuda()
@@ -100,7 +105,7 @@ for epoch in range(num_epochs):
         G_input = G_input.cuda()
         random_choice = (torch.rand(batch_size) * label_dim).type(torch.LongTensor)
         fill3 = fill[random_choice]
-        fake_label = label[random_choice]
+        fake_label = label[random_choice].cuda()
         fake_img = G(G_input, fake_label)
         fake_label = fake_label.cuda()
         fake_img = fake_img.cuda()
@@ -117,4 +122,7 @@ for epoch in range(num_epochs):
         # D_losses.append(D_loss.data[0])
         # G_losses.append(G_loss.data[0])
         print('Epoch [%d/%d], Step [%d/%d], D_loss: %.4f, G_loss: %.4f'
-                % (epoch+1, num_epochs, i+1, len(dataloaders), D_loss.data[0], G_loss.data[0]))
+                % (epoch+1, num_epochs, batch_index+1, len(dataloaders), D_loss.data[0], G_loss.data[0]))
+
+torch.save(G.state_dict(), "./generator_param.pkl")
+torch.save(D.state_dict(), "./discriminator_param.pkl")

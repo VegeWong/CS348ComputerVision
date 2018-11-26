@@ -14,7 +14,7 @@ class Generator(torch.nn.Module):
             # Deconvolutional layer
             if i == 0:
                 # For input
-                input_deconv = torch.nn.ConvTranspose2d(input_dim, int(num_filters[i]/2), kernel_size=4, stride=1, padding=0)
+                input_deconv = torch.nn.ConvTranspose2d(input_dim, int(num_filters[i]/2), kernel_size=7, stride=1, padding=0)
                 self.hidden_layer1.add_module('input_deconv', input_deconv)
 
                 # Initializer
@@ -28,7 +28,7 @@ class Generator(torch.nn.Module):
                 self.hidden_layer1.add_module('input_act', torch.nn.ReLU())
 
                 # For label
-                label_deconv = torch.nn.ConvTranspose2d(label_dim, int(num_filters[i]/2), kernel_size=4, stride=1, padding=0)
+                label_deconv = torch.nn.ConvTranspose2d(label_dim, int(num_filters[i]/2), kernel_size=7, stride=1, padding=0)
                 self.hidden_layer2.add_module('label_deconv', label_deconv)
 
                 # Initializer
@@ -75,8 +75,6 @@ class Generator(torch.nn.Module):
         x = torch.cat([h1, h2], 1)
         h = self.hidden_layer(x)
         out = self.output_layer(h)
-        #res = out.type(torch.cuda.FloatTensor)
-        #return res
         return out
 
 
@@ -133,7 +131,7 @@ class Discriminator(torch.nn.Module):
         # Output layer
         self.output_layer = torch.nn.Sequential()
         # Convolutional layer
-        out = torch.nn.Conv2d(num_filters[i], output_dim, kernel_size=4, stride=1, padding=0)
+        out = torch.nn.Conv2d(num_filters[i], output_dim, kernel_size=7, stride=1, padding=0)
         self.output_layer.add_module('out', out)
         # Initializer
         torch.nn.init.normal_(out.weight, mean=0.0, std=0.02)

@@ -1,3 +1,4 @@
 smpsrc/*
 __pycache__
 data
+*.pkl
